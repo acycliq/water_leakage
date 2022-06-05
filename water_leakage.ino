@@ -23,10 +23,13 @@ String HTTP_METHOD = "GET";
 char   HOST_NAME[] = "maker.ifttt.com";
 String PATH_NAME   = "/trigger/send-email/with/key/nw_KyAEC___okvAwcj-v0qR0HBo2ey2cglcM9lTqLGP"; // change your Webhooks key
 String queryString = "?value1=27"; // the supposed temperature value is 27°C
-
+boolean IS_FIRST_TIME = true;
 
 
 int value = 0; // variable to store the sensor value
+unsigned long previousMillis = 0; // will store last time an email was sent out
+const long interval = 60000;           // interval at which to blink (milliseconds)
+
 
 void setup() {
   Serial.begin(9600);
@@ -75,7 +78,23 @@ void ini_ethernet_shield() {
   }
 }
 
+unsigned long time_delta(unsigned long t0, unsigned long t1){
+  unsigned long out;
+  if (IS_FIRST_TIME){
+    // the first event might happen before the time set by interval. In that case do not calc the time diff.
+    // just return a value high enough to trigger the action
+    out = interval + 1.0;
+    IS_FIRST_TIME = false;
+  }
+  else{
+    out = t1 - t0;
+  }
+  return out;
+}
+
 void loop() {
+  unsigned long currentMillis = millis();
+
   digitalWrite(POWER_PIN, HIGH);  // turn the sensor ON
   delay(10);                      // wait 10 milliseconds
   value = analogRead(SIGNAL_PIN); // read the analog value from sensor
@@ -86,8 +105,12 @@ void loop() {
   
 
   if (value > THRESHOLD) {
-//    Serial.print("The water is detected ");
-    send_email();
+    unsigned long dt = time_delta(previousMillis, currentMillis);
+    Serial.println(dt);
+    if (dt >= interval) {
+      previousMillis = currentMillis;
+      send_email();
+    }
   } 
 
   delay(1000);
